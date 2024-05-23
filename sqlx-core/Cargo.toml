@@ -20,7 +20,9 @@ json = ["serde", "serde_json"]
 
 # for conditional compilation
 _rt-async-std = ["async-std", "async-io"]
+_rt-cfw = ["worker", "async_executors/bindgen", "async_executors/timer"]
 _rt-tokio = ["tokio", "tokio-stream"]
+_tls-cfw = ["worker"]
 _tls-native-tls = ["native-tls"]
 _tls-rustls = ["rustls", "rustls-pemfile", "webpki-roots"]
 _tls-none = []
@@ -31,7 +33,9 @@ offline = ["serde", "either/serde"]
 [dependencies]
 # Runtimes
 async-std = { workspace = true, optional = true }
+async_executors = { version = "0.7.0", optional = true, default-features = false }
 tokio = { workspace = true, optional = true }
+worker = { version = "0.3.0", optional = true }
 
 # TLS
 native-tls = { version = "0.2.10", optional = true }

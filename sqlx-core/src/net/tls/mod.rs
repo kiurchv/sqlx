@@ -12,6 +12,9 @@ mod tls_rustls;
 #[cfg(feature = "_tls-native-tls")]
 mod tls_native_tls;
 
+#[cfg(feature = "_tls-cfw")]
+mod tls_cfw;
+
 mod util;
 
 /// X.509 Certificate input, either a file path or a PEM encoded inline certificate(s).
@@ -74,21 +77,32 @@ where
     S: Socket,
     Ws: WithSocket,
 {
+    #[cfg(feature = "_tls-cfw")]
+    return Ok(with_socket.with_socket(tls_cfw::handshake(socket, config).await?));
+
     #[cfg(feature = "_tls-native-tls")]
     return Ok(with_socket.with_socket(tls_native_tls::handshake(socket, config).await?));
 
     #[cfg(all(feature = "_tls-rustls", not(feature = "_tls-native-tls")))]
     return Ok(with_socket.with_socket(tls_rustls::handshake(socket, config).await?));
 
-    #[cfg(not(any(feature = "_tls-native-tls", feature = "_tls-rustls")))]
+    #[cfg(not(any(
+        feature = "_tls-cfw",
+        feature = "_tls-native-tls",
+        feature = "_tls-rustls"
+    )))]
     {
         drop((socket, config, with_socket));
-        panic!("one of the `runtime-*-native-tls` or `runtime-*-rustls` features must be enabled")
+        panic!("one of the `runtime-*-cfw-tls`, `runtime-*-native-tls` or `runtime-*-rustls` features must be enabled")
     }
 }
 
 pub fn available() -> bool {
-    cfg!(any(feature = "_tls-native-tls", feature = "_tls-rustls"))
+    cfg!(any(
+        feature = "_tls-cfw",
+        feature = "_tls-native-tls",
+        feature = "_tls-rustls"
+    ))
 }
 
 pub fn error_if_unavailable() -> crate::Result<()> {

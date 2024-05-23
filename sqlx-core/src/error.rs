@@ -305,6 +305,16 @@ impl From<crate::migrate::MigrateError> for Error {
     }
 }
 
+#[cfg(feature = "_rt-cfw")]
+impl From<worker::Error> for Error {
+    fn from(error: worker::Error) -> Self {
+        match error {
+            worker::Error::Io(error) => Error::Io(error),
+            _ => unimplemented!(),
+        }
+    }
+}
+
 /// Format an error message as a `Protocol` error
 #[macro_export]
 macro_rules! err_protocol {

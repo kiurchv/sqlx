@@ -74,9 +74,11 @@ _unstable-all-types = [
 
 # Base runtime features without TLS
 runtime-async-std = ["_rt-async-std", "sqlx-core/_rt-async-std", "sqlx-macros?/_rt-async-std"]
+runtime-cfw = ["_rt-cfw", "sqlx-core/_rt-cfw"]
 runtime-tokio = ["_rt-tokio", "sqlx-core/_rt-tokio", "sqlx-macros?/_rt-tokio"]
 
 # TLS features
+tls-cfw = ["sqlx-core/_tls-cfw"]
 tls-native-tls = ["sqlx-core/_tls-native-tls", "sqlx-macros?/_tls-native-tls"]
 tls-rustls = ["sqlx-core/_tls-rustls", "sqlx-macros?/_tls-rustls"]
 
@@ -93,6 +95,7 @@ runtime-tokio-rustls = ["runtime-tokio", "tls-rustls"]
 
 # for conditional compilation
 _rt-async-std = []
+_rt-cfw = []
 _rt-tokio = []
 
 # database

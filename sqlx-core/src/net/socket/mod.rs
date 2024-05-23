@@ -200,6 +200,17 @@ pub async fn connect_tcp<Ws: WithSocket>(
         return Ok(with_socket.with_socket(stream));
     }
 
+    #[cfg(feature = "_rt-cfw")]
+    {
+        use worker::{SecureTransport, Socket};
+
+        let socket = Socket::builder()
+            .secure_transport(SecureTransport::StartTls)
+            .connect(host, port)?;
+
+        return Ok(with_socket.with_socket(socket));
+    }
+
     #[cfg(feature = "_rt-async-std")]
     {
         use async_io::Async;
@@ -236,7 +247,7 @@ pub async fn connect_tcp<Ws: WithSocket>(
         }
     }
 
-    #[cfg(not(feature = "_rt-async-std"))]
+    #[cfg(not(any(feature = "_rt-cfw", feature = "_rt-async-std")))]
     {
         crate::rt::missing_rt((host, port, with_socket))
     }

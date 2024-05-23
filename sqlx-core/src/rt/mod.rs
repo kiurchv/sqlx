@@ -7,6 +7,9 @@ use std::time::Duration;
 #[cfg(feature = "_rt-async-std")]
 pub mod rt_async_std;
 
+#[cfg(feature = "_rt-cfw")]
+pub mod rt_cfw;
+
 #[cfg(feature = "_rt-tokio")]
 pub mod rt_tokio;
 
@@ -17,6 +20,8 @@ pub struct TimeoutError(());
 pub enum JoinHandle<T> {
     #[cfg(feature = "_rt-async-std")]
     AsyncStd(async_std::task::JoinHandle<T>),
+    #[cfg(feature = "_rt-cfw")]
+    CloudflareWorker(async_executors::JoinHandle<T>),
     #[cfg(feature = "_rt-tokio")]
     Tokio(tokio::task::JoinHandle<T>),
     // `PhantomData<T>` requires `T: Unpin`
@@ -31,6 +36,16 @@ pub async fn timeout<F: Future>(duration: Duration, f: F) -> Result<F::Output, T
             .map_err(|_| TimeoutError(()));
     }
 
+    #[cfg(feature = "_rt-cfw")]
+    {
+        use async_executors::TimerExt;
+
+        return async_executors::Bindgen::new()
+            .timeout(duration, f)
+            .await
+            .map_err(|_| TimeoutError(()));
+    }
+
     #[cfg(feature = "_rt-async-std")]
     {
         return async_std::future::timeout(duration, f)
@@ -38,7 +53,7 @@ pub async fn timeout<F: Future>(duration: Duration, f: F) -> Result<F::Output, T
             .map_err(|_| TimeoutError(()));
     }
 
-    #[cfg(not(feature = "_rt-async-std"))]
+    #[cfg(not(any(feature = "_rt-async-std", feature = "_rt-cfw")))]
     missing_rt((duration, f))
 }
 
@@ -48,12 +63,18 @@ pub async fn sleep(duration: Duration) {
         return tokio::time::sleep(duration).await;
     }
 
+    #[cfg(feature = "_rt-cfw")]
+    {
+        use async_executors::Timer;
+        return async_executors::Bindgen::new().sleep(duration).await;
+    }
+
     #[cfg(feature = "_rt-async-std")]
     {
         return async_std::task::sleep(duration).await;
     }
 
-    #[cfg(not(feature = "_rt-async-std"))]
+    #[cfg(not(any(feature = "_rt-async-std", feature = "_rt-cfw")))]
     missing_rt(duration)
 }
 
@@ -68,12 +89,20 @@ where
         return JoinHandle::Tokio(handle.spawn(fut));
     }
 
+    #[cfg(feature = "_rt-cfw")]
+    {
+        use async_executors::SpawnHandleExt;
+
+        let handle = async_executors::Bindgen::new().spawn_handle(fut).unwrap();
+        return JoinHandle::CloudflareWorker(handle);
+    }
+
     #[cfg(feature = "_rt-async-std")]
     {
         return JoinHandle::AsyncStd(async_std::task::spawn(fut));
     }
 
-    #[cfg(not(feature = "_rt-async-std"))]
+    #[cfg(not(any(feature = "_rt-async-std", feature = "_rt-cfw")))]
     missing_rt(fut)
 }
 
@@ -88,12 +117,15 @@ where
         return JoinHandle::Tokio(handle.spawn_blocking(f));
     }
 
+    #[cfg(feature = "_rt-cfw")]
+    unimplemented!();
+
     #[cfg(feature = "_rt-async-std")]
     {
         return JoinHandle::AsyncStd(async_std::task::spawn_blocking(f));
     }
 
-    #[cfg(not(feature = "_rt-async-std"))]
+    #[cfg(not(any(feature = "_rt-async-std", feature = "_rt-cfw")))]
     missing_rt(f)
 }
 
@@ -103,12 +135,18 @@ pub async fn yield_now() {
         return tokio::task::yield_now().await;
     }
 
+    #[cfg(feature = "_rt-cfw")]
+    {
+        use async_executors::YieldNow;
+        return async_executors::Bindgen::new().yield_now().await;
+    }
+
     #[cfg(feature = "_rt-async-std")]
     {
         return async_std::task::yield_now().await;
     }
 
-    #[cfg(not(feature = "_rt-async-std"))]
+    #[cfg(not(any(feature = "_rt-async-std", feature = "_rt-cfw")))]
     missing_rt(())
 }
 
@@ -141,7 +179,9 @@ pub fn missing_rt<T>(_unused: T) -> ! {
         panic!("this functionality requires a Tokio context")
     }
 
-    panic!("either the `runtime-async-std` or `runtime-tokio` feature must be enabled")
+    panic!(
+        "either the `runtime-async-std`, `runtime-cfw` or `runtime-tokio` feature must be enabled"
+    )
 }
 
 impl<T: Send + 'static> Future for JoinHandle<T> {
@@ -152,6 +192,8 @@ impl<T: Send + 'static> Future for JoinHandle<T> {
         match &mut *self {
             #[cfg(feature = "_rt-async-std")]
             Self::AsyncStd(handle) => Pin::new(handle).poll(cx),
+            #[cfg(feature = "_rt-cfw")]
+            Self::CloudflareWorker(handle) => Pin::new(handle).poll(cx),
             #[cfg(feature = "_rt-tokio")]
             Self::Tokio(handle) => Pin::new(handle)
                 .poll(cx)
